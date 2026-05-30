@@ -380,6 +380,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startRolling() {
+        if (binding.bottomNavigation.getSelectedItemId() != R.id.nav_home) {
+            return;
+        }
+
         if (isRolling) return;
 
         List<FoodItem> activeList = new ArrayList<>();
