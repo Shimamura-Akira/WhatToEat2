@@ -16,6 +16,12 @@ import android.widget.EditText;
 import android.widget.Toast;
 import android.view.HapticFeedbackConstants;
 
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+
 import com.example.whattoeat.databinding.ActivityMainBinding;
 import com.google.android.material.color.DynamicColors;
 
@@ -38,6 +44,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean isRolling = false;
     private Runnable rollRunnable;
 
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
+    private long lastShakeTime = 0;
+    private static final float SHAKE_THRESHOLD = 15.0f;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         DynamicColors.applyToActivityIfAvailable(this);
@@ -55,6 +66,11 @@ public class MainActivity extends AppCompatActivity {
 
         handler = new Handler(Looper.getMainLooper());
         random = new Random();
+
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager != null) {
+            accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        }
 
         initData();
         initView();
@@ -244,6 +260,49 @@ public class MainActivity extends AppCompatActivity {
                 .setMessage(message)
                 .setPositiveButton(positiveBtn, null)
                 .show();
+    }
+
+    private final SensorEventListener sensorEventListener = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                float x = event.values[0];
+                float y = event.values[1];
+                float z = event.values[2];
+                
+                // 计算去除了重力的加速度
+                double acceleration = Math.sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH;
+                if (acceleration > SHAKE_THRESHOLD) {
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastShakeTime > 1000) { // 1秒防抖，避免重复触发
+                        lastShakeTime = currentTime;
+                        if (!isRolling) {
+                            startRolling();
+                        }
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        }
+    };
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (sensorManager != null && accelerometer != null) {
+            sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(sensorEventListener);
+        }
     }
 
     @Override

@@ -11,9 +11,7 @@
   - 支持随转动发出的触觉反馈（震动滴答声），模拟真实的物理转盘刻度。
   - 启动后自动计算目标位置，并在减速后停止。
   - **趣味彩蛋（暗箱操作）**：有 20% 的概率触发彩蛋。转盘假装停留在某一项，悬停 0.5 秒后突然“滑”向下一个选项，并弹出“有黑幕！”的趣味对话框。
-
-### 2. 候选菜单管理 (Menu Management)
-- **菜单列表视图**：利用 `RecyclerView` 显示所有菜单，支持长列表滚动。
+          - **摇一摇抽选 (Shake to Spin)**：借助手机加速度传感器，用户用力摇晃手机即可直接启动转盘，无需手动点击“开始”按钮。
 - **自定义控制**：
   - 开关/启用 (Enable/Disable)：可勾选或取消勾选某些菜单，未勾选的项不会出现在转盘中。
   - 添加 (Add)：输入名字添加新选项，并在输入过程中拦截空字符与重名。
@@ -56,4 +54,15 @@
 ### 工具和动画类
 - 动画库: Android 原生 `ValueAnimator`（控制转盘速率）与 `DecelerateInterpolator`。
 - Material 过渡动画: `MaterialSharedAxis`（控制页面切换）。
-- 触摸反馈: `HapticFeedbackConstants`（调用手机震动马达）。
+- 触摸反馈与传感器: `HapticFeedbackConstants`（调用手机震动马达），`SensorManager` 及 `Sensor.TYPE_ACCELEROMETER`（实现摇一摇功能）。
+
+---
+
+## 📝 更新日志 (Changelog)
+
+### [新功能] 添加传感器支持 - 摇一摇抽选
+- **MainActivity.java**:
+  - 引入了 `SensorManager` 和 `Sensor` 组件获取手机的加速度传感器 (`TYPE_ACCELEROMETER`)。
+  - 新增 `SensorEventListener` 监听加速度变化。当三轴加速度向量和剔除地球重力后超过设定的阈值（`SHAKE_THRESHOLD = 15.0f`）时，自动触发 `startRolling()`。
+  - 添加了1秒的防抖机制，避免一次摇动触发多次抽选。
+  - 重写了 `onResume` 和 `onPause` 生命周期方法，确保应用在进入前台时注册传感器，切入后台时注销传感器，节省设备电量。
