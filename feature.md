@@ -14,6 +14,7 @@
   - **摇一摇抽选 (Shake to Spin)**：借助手机加速度传感器，用户用力摇晃手机即可直接启动转盘，无需手动点击“开始”按钮。
   - **隔空抽选 (Wave to Spin)**：借助手机距离传感器，手在屏幕上方（听筒附近）悬停然后移开挥过即可启动转盘，避免手上有油污时弄脏屏幕。
 - **自定义控制**：
+  - **地图导航联动 (Map Integration)**：列表每一项带有地图图标按钮，点击即可呼起设备中安装的任一地图应用（如高德地图、百度地图或 Google Maps），并自动以该选项名称作为目的地进行位置检索。
   - **盲选附近美食 (LBS 定位)**：采用 Overpass API 接口与设备定位服务。点击“盲选附近”按钮即可获取用户方圆 2 公里内的真实餐厅、快餐店或咖啡馆，并自动排重后加入转盘备选菜单。
   - 开关/启用 (Enable/Disable)：可勾选或取消勾选某些菜单，未勾选的项不会出现在转盘中。
   - 添加 (Add)：输入名字添加新选项，并在输入过程中拦截空字符与重名。
@@ -74,6 +75,11 @@
   - 利用 `Executors.newSingleThreadExecutor()` 在子线程调度原生的 `HttpURLConnection` 去访问 `Overpass API`，搜索约 2000 米内的 restaurants / fast_food 设施节点。
   - 通过 原生 `JSONObject` 完成 JSON 数据清洗过滤后再回到主 UI `Handler` 去重更新食物列表阵列。
 
+### [新功能] 添加列表到地图的联动跳转机制
+- **item_food.xml / FoodAdapter.java**:
+  - 为列表中每个单独选项加入了“地图检索” (`ic_menu_mapmode`) 的图标及点击监听接口。
+- **MainActivity.java**:
+  - 新增 `openMap` 方法，通过拼装 `geo:0,0?q=` 规范的隐式意图 (`Intent.ACTION_VIEW`) 泛型跳转至系统的第三方地图应用定位商铺，增强 O2O 操作体验。
 
 ### [新功能] 添加传感器支持 - 隔空抽选（挥手）
 - **MainActivity.java**:

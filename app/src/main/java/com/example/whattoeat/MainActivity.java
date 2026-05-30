@@ -40,6 +40,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 
 import com.example.whattoeat.databinding.ActivityMainBinding;
 import com.google.android.material.color.DynamicColors;
@@ -127,7 +130,8 @@ public class MainActivity extends AppCompatActivity {
                 adapter.submitList(new ArrayList<>(foodList));
                 updateRouletteData();
             },
-            item -> showEditDialog(item)
+            item -> showEditDialog(item),
+            item -> openMap(item.getName())
         );
         
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -170,6 +174,16 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
+    }
+
+    private void openMap(String restaurantName) {
+        Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + Uri.encode(restaurantName));
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        try {
+            startActivity(mapIntent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "没有找到可以打开地图的应用", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
