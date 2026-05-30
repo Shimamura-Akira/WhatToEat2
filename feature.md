@@ -14,6 +14,7 @@
   - **摇一摇抽选 (Shake to Spin)**：借助手机加速度传感器，用户用力摇晃手机即可直接启动转盘，无需手动点击“开始”按钮。
   - **隔空抽选 (Wave to Spin)**：借助手机距离传感器，手在屏幕上方（听筒附近）悬停然后移开挥过即可启动转盘，避免手上有油污时弄脏屏幕。
 - **自定义控制**：
+  - **盲选附近美食 (LBS 定位)**：采用 Overpass API 接口与设备定位服务。点击“盲选附近”按钮即可获取用户方圆 2 公里内的真实餐厅、快餐店或咖啡馆，并自动排重后加入转盘备选菜单。
   - 开关/启用 (Enable/Disable)：可勾选或取消勾选某些菜单，未勾选的项不会出现在转盘中。
   - 添加 (Add)：输入名字添加新选项，并在输入过程中拦截空字符与重名。
   - 编辑 (Edit)：点击已有选项修改名称。
@@ -49,7 +50,8 @@
 
 ### 架构与数据存储
 - **本地存储持久化**：使用系统的 `SharedPreferences` 进行键值对轻量级存储。
-- **JSON 序列化/反序列化**：使用 `com.google.code.gson:gson:2.10.1`，把用户自定义对象列表转成 JSON 字符串保存到本地。
+- **JSON 序列化/反序列化**：使用 `com.google.code.gson:gson:2.10.1`，把用户自定义对象列表转成 JSON 字符串保存到本地，并自带原生 `org.json` 处理网络回调数据。
+- **网络与并发**：通过 `HttpURLConnection` 在 `ExecutorService` （单线程池）下发起并发 RESTful POST 请求，通过回调 `Handler` 更新主线程 UI。
 - **应用分层**：分为 UI 层与通过 `DataManager` 封装的简单 Repository/Data 层。
 
 ### 工具和动画类
@@ -60,6 +62,18 @@
 ---
 
 ## 📝 更新日志 (Changelog)
+
+### [新功能] 添加网络支持 - 盲选附近真实餐厅
+- **AndroidManifest.xml**:
+  - 声明了网络访问权限 (`INTERNET`) 及定位权限 (`ACCESS_FINE_LOCATION` 和 `ACCESS_COARSE_LOCATION`)。
+- **activity_main.xml**:
+  - 在列表管理页的右下侧悬浮按钮布局处，添加了新的“盲选附近”对应的 `ExtendedFloatingActionButton` (ID: `fabNearby`)。
+- **MainActivity.java**:
+  - 新增 `fetchNearbyRestaurants` 方法。加入动态权限申请拦截。
+  - 获取上次已知设备的最后 GPS/网络 位置信息（经纬度）。
+  - 利用 `Executors.newSingleThreadExecutor()` 在子线程调度原生的 `HttpURLConnection` 去访问 `Overpass API`，搜索约 2000 米内的 restaurants / fast_food 设施节点。
+  - 通过 原生 `JSONObject` 完成 JSON 数据清洗过滤后再回到主 UI `Handler` 去重更新食物列表阵列。
+
 
 ### [新功能] 添加传感器支持 - 隔空抽选（挥手）
 - **MainActivity.java**:

@@ -16,6 +16,25 @@ import android.widget.EditText;
 import android.widget.Toast;
 import android.view.HapticFeedbackConstants;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
+import java.io.OutputStream;
+import android.app.ProgressDialog;
+import org.json.JSONObject;
+import org.json.JSONArray;
+import java.util.HashSet;
+import java.util.Set;
+
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -117,6 +136,7 @@ public class MainActivity extends AppCompatActivity {
         updateRouletteData();
 
         binding.fabAdd.setOnClickListener(v -> showAddDialog());
+        binding.fabNearby.setOnClickListener(v -> fetchNearbyRestaurants());
         binding.btnStart.setOnClickListener(v -> startRolling());
         
         binding.rouletteView.setSpinListener((result, isRigged) -> {
@@ -150,6 +170,130 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
+    }
+
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
+
+    private void fetchNearbyRestaurants() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+            return;
+        }
+
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        Location location = null;
+        try {
+            Location lastKnownGPS = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            Location lastKnownNetwork = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            if (lastKnownGPS != null) location = lastKnownGPS;
+            else if (lastKnownNetwork != null) location = lastKnownNetwork;
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+
+        if (location == null) {
+            Toast.makeText(this, "无法获取当前位置，请检查是否已开启定位开关", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        double lat = location.getLatitude();
+        double lon = location.getLongitude();
+
+        ProgressDialog progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("正在搜索附近的美食...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                // 使用 Overpass API 获取附近的餐厅信息 (不需要 API 密钥的大众版)
+                String overpassQuery = "[out:json];node[\"amenity\"~\"restaurant|fast_food|cafe\"](around:2000," + lat + "," + lon + ");out 15;";
+                URL url = new URL("https://overpass-api.de/api/interpreter");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(overpassQuery.getBytes("UTF-8"));
+                }
+                
+                if (conn.getResponseCode() == 200) {
+                    BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = in.readLine()) != null) response.append(line);
+                    in.close();
+
+                    JSONObject jsonResponse = new JSONObject(response.toString());
+                    JSONArray elements = jsonResponse.getJSONArray("elements");
+
+                    List<String> newRestaurants = new ArrayList<>();
+                    for (int i = 0; i < elements.length(); i++) {
+                        JSONObject element = elements.getJSONObject(i);
+                        if (element.has("tags")) {
+                            JSONObject tags = element.getJSONObject("tags");
+                            if (tags.has("name")) {
+                                newRestaurants.add(tags.getString("name"));
+                            }
+                        }
+                    }
+
+                    handler.post(() -> {
+                        progressDialog.dismiss();
+                        if (newRestaurants.isEmpty()) {
+                            Toast.makeText(MainActivity.this, "附近没有找到相关结果", Toast.LENGTH_SHORT).show();
+                        } else {
+                            // 过滤重复和空名字
+                            Set<String> existingNames = new HashSet<>();
+                            for (FoodItem item : foodList) existingNames.add(item.getName());
+                            
+                            int addedCount = 0;
+                            for (String name : newRestaurants) {
+                                if (!name.trim().isEmpty() && !existingNames.contains(name)) {
+                                    foodList.add(new FoodItem(name));
+                                    existingNames.add(name);
+                                    addedCount++;
+                                }
+                            }
+                            
+                            if (addedCount > 0) {
+                                dataManager.saveFoodList(foodList);
+                                adapter.submitList(new ArrayList<>(foodList));
+                                updateRouletteData();
+                                Toast.makeText(MainActivity.this, "成功盲选获取了 " + addedCount + " 家附近美食！", Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(MainActivity.this, "获取的美食都已经在列表中了", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+                } else {
+                    handler.post(() -> {
+                        progressDialog.dismiss();
+                        Toast.makeText(MainActivity.this, "网络请求失败，请稍后重试", Toast.LENGTH_SHORT).show();
+                    });
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                e.printStackTrace();
+                handler.post(() -> {
+                    progressDialog.dismiss();
+                    Toast.makeText(MainActivity.this, "获取失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                fetchNearbyRestaurants();
+            } else {
+                Toast.makeText(this, "需要定位权限才能获取附近的美食哦", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private void showAddDialog() {
