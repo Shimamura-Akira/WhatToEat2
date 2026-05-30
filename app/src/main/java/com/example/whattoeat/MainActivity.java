@@ -46,7 +46,9 @@ public class MainActivity extends AppCompatActivity {
 
     private SensorManager sensorManager;
     private Sensor accelerometer;
+    private Sensor proximitySensor;
     private long lastShakeTime = 0;
+    private boolean isNear = false;
     private static final float SHAKE_THRESHOLD = 15.0f;
 
     @Override
@@ -70,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
         }
 
         initData();
@@ -281,6 +284,22 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 }
+            } else if (event.sensor.getType() == Sensor.TYPE_PROXIMITY) {
+                float distance = event.values[0];
+                // 距离小于特定阈值（通常很小，部分厂商直接返回最大或0代表远近）时，判定为靠近
+                if (distance < proximitySensor.getMaximumRange() && distance < 5f) {
+                    isNear = true;
+                } else {
+                    // 当从靠近变为远离时，触发抽选（也就是“挥手”的动作结束时）
+                    if (isNear && !isRolling) {
+                        long currentTime = System.currentTimeMillis();
+                        if (currentTime - lastShakeTime > 1000) { // 和摇一摇共用防抖
+                            lastShakeTime = currentTime;
+                            startRolling();
+                        }
+                    }
+                    isNear = false;
+                }
             }
         }
 
@@ -292,8 +311,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (sensorManager != null && accelerometer != null) {
-            sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
+        if (sensorManager != null) {
+            if (accelerometer != null) {
+                sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
+            }
+            if (proximitySensor != null) {
+                sensorManager.registerListener(sensorEventListener, proximitySensor, SensorManager.SENSOR_DELAY_UI);
+            }
         }
     }
 

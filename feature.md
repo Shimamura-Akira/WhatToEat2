@@ -11,7 +11,8 @@
   - 支持随转动发出的触觉反馈（震动滴答声），模拟真实的物理转盘刻度。
   - 启动后自动计算目标位置，并在减速后停止。
   - **趣味彩蛋（暗箱操作）**：有 20% 的概率触发彩蛋。转盘假装停留在某一项，悬停 0.5 秒后突然“滑”向下一个选项，并弹出“有黑幕！”的趣味对话框。
-          - **摇一摇抽选 (Shake to Spin)**：借助手机加速度传感器，用户用力摇晃手机即可直接启动转盘，无需手动点击“开始”按钮。
+  - **摇一摇抽选 (Shake to Spin)**：借助手机加速度传感器，用户用力摇晃手机即可直接启动转盘，无需手动点击“开始”按钮。
+  - **隔空抽选 (Wave to Spin)**：借助手机距离传感器，手在屏幕上方（听筒附近）悬停然后移开挥过即可启动转盘，避免手上有油污时弄脏屏幕。
 - **自定义控制**：
   - 开关/启用 (Enable/Disable)：可勾选或取消勾选某些菜单，未勾选的项不会出现在转盘中。
   - 添加 (Add)：输入名字添加新选项，并在输入过程中拦截空字符与重名。
@@ -54,11 +55,19 @@
 ### 工具和动画类
 - 动画库: Android 原生 `ValueAnimator`（控制转盘速率）与 `DecelerateInterpolator`。
 - Material 过渡动画: `MaterialSharedAxis`（控制页面切换）。
-- 触摸反馈与传感器: `HapticFeedbackConstants`（调用手机震动马达），`SensorManager` 及 `Sensor.TYPE_ACCELEROMETER`（实现摇一摇功能）。
+- 触摸反馈与传感器: `HapticFeedbackConstants`（调用手机震动马达），`SensorManager`，`Sensor.TYPE_ACCELEROMETER`（实现摇一摇功能）以及 `Sensor.TYPE_PROXIMITY`（实现隔空抽选功能）。
 
 ---
 
 ## 📝 更新日志 (Changelog)
+
+### [新功能] 添加传感器支持 - 隔空抽选（挥手）
+- **MainActivity.java**:
+  - 引入了 `Sensor.TYPE_PROXIMITY` 距离传感器并初始化。
+  - 在 `SensorEventListener` 中监听距离变化，当检测到手先靠近屏幕上方听筒区域，然后离开时（模拟挥手动作），配合原有的 1 秒防抖机制触发 `startRolling()` 开始抽选。
+  - 在 `onResume` 中同步注册距离传感器的监听，重用共有的解绑逻辑以统一管理生命周期。
+- **feature.md**:
+  - 在文档中补充了关于距离传感器和“隔空抽选”的功能描述。
 
 ### [新功能] 添加传感器支持 - 摇一摇抽选
 - **MainActivity.java**:
