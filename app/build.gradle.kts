@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.whattoeat"
+        applicationId = "com.example.whattoeat2"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
